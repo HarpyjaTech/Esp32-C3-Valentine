@@ -16,10 +16,11 @@ Tudo é controlado por um **ESP32-S3**, que também cria um **web server** para 
 ✅ **Eletrônicos:**
 - 1x ESP32-S3 (ex.: ESP32-S3-DevKitC-1)
 - 1x Buzzer passivo
-- 1x Fita LED RGB comum, **não endereçável** (ex.: 5050), com 4 pinos: **+V, R, G, B**
-- 3x MOSFET canal N logic-level (IRLZ44N, IRLB8721, AO3400…)
-- 3x Resistor 220Ω (gate dos MOSFETs)
-- 3x Resistor 10kΩ (pull-down dos gates)
+- 1x Fita LED RGB **não endereçável**, com GND comum: pinos **GND, R, G, B**
+- 3x MOSFET canal P (veja qual usar na seção da fita)
+- 3x Transistor NPN (BC547, 2N2222…)
+- 3x Resistor 1kΩ (base dos NPN)
+- 6x Resistor 10kΩ (3 pull-up dos gates + 3 pull-down das bases)
 - Fios, solda e terminais/olhal para a trava
 - Fonte com a tensão da fita (12V ou 5V); se for 12V, um regulador step-down 12V→5V para o ESP32
 
@@ -40,9 +41,9 @@ ESP32-S3
 │                          │
 │ GPIO5  ← TRAVA (contato) │
 │ GPIO4  → BUZZER          │
-│ GPIO15 → MOSFET R        │
-│ GPIO16 → MOSFET G        │
-│ GPIO17 → MOSFET B        │
+│ GPIO15 → driver R        │
+│ GPIO16 → driver G        │
+│ GPIO17 → driver B        │
 └──────────────────────────┘
 ```
 
@@ -68,21 +69,36 @@ Buzzer
 ```
 > Para mais volume, acione o buzzer por um transistor NPN (BC547/2N2222) alimentado em 5V.
 
-#### 3️⃣ **Fita LED RGB (pinos +V, R, G, B)**
-O ESP32 não aguenta a corrente da fita direto nos pinos, então cada cor passa por um MOSFET, que liga o pino R, G ou B ao GND com PWM:
+#### 3️⃣ **Fita LED RGB com GND comum (pinos GND, R, G, B)**
+Nessa fita o GND é comum e cada cor acende quando recebe **+V** no seu pino. O ESP32 não fornece a tensão nem a corrente da fita, então cada cor tem uma "chave do lado positivo": um **MOSFET canal P**, comandado por um **transistor NPN**.
+
+Monte o circuito abaixo **3 vezes** (R → GPIO15, G → GPIO16, B → GPIO17). Exemplo do vermelho:
 
 ```
-Fonte +12V (ou +5V) ──────────── +V da fita
+MOSFET P (IRF9540N...)
+  Fonte (S) ──────────────── +V da fonte (5V ou 12V)
+  Dreno (D) ──────────────── pino R da fita
+  Gate  (G) ── 10kΩ ──────── +V da fonte        (mantém a cor apagada)
+  Gate  (G) ──────────────── Coletor do NPN
 
-Fita R ── Dreno MOSFET 1 │ Fonte → GND │ Gate ── 220Ω ── GPIO15  (10kΩ gate→GND)
-Fita G ── Dreno MOSFET 2 │ Fonte → GND │ Gate ── 220Ω ── GPIO16  (10kΩ gate→GND)
-Fita B ── Dreno MOSFET 3 │ Fonte → GND │ Gate ── 220Ω ── GPIO17  (10kΩ gate→GND)
+NPN (BC547 / 2N2222)
+  Coletor (C) ────────────── Gate do MOSFET P
+  Emissor (E) ────────────── GND
+  Base    (B) ── 1kΩ ─────── GPIO15
+  Base    (B) ── 10kΩ ────── GND                (apagada durante o boot)
 
-GND da fonte ── GND do ESP32 (GND comum obrigatório)
+GND da fita ── GND da fonte ── GND do ESP32     (GND comum obrigatório)
 ```
 
+Como funciona: GPIO em **HIGH** → NPN conduz → puxa o gate do MOSFET P para GND → MOSFET liga → a cor recebe +V e acende. Com o GPIO em **LOW** (ou durante o boot, graças ao 10kΩ na base), o resistor de 10kΩ mantém o gate em +V e a cor fica apagada. O PWM do código funciona sem nenhuma inversão.
+
+> **Qual MOSFET P usar?**
+> - Fita de **12V**: IRF9540N, FQP27P06 ou IRF4905
+> - Fita de **5V**: um MOSFET P que ligue bem com 5V no gate, como AO3401 / IRLML6402 (SMD) ou NDP6020P
+>
+> Alternativa mais simples para fitas curtas (até ~500 mA por cor): um driver de lado positivo **UDN2981 / TBD62783** (entrada direto nos GPIOs, saídas nos pinos R, G e B).
+>
 > Com fonte de 12V, alimente o ESP32 por um step-down 12V→5V no pino 5V (ou pelo USB).
-> O pull-down de 10kΩ mantém a fita apagada enquanto o ESP32 inicia.
 
 ---
 
@@ -192,9 +208,10 @@ O arranjo incluído é uma versão simplificada para buzzer (uma nota por vez). 
 |----------|---------|
 | Cena não inicia ao destravar | Veja "Trava" na página web; se aparecer invertido, troque `TRAVA_FECHADA_NIVEL` para `HIGH` |
 | Cena dispara sozinha | Melhore o contato da trava ou aumente `DEBOUNCE_MS` |
-| Fita não acende | Confira o GND comum entre fonte, MOSFETs e ESP32, e se o MOSFET é logic-level |
+| Fita não acende | Confira o GND comum entre fonte, fita e ESP32, os pinos do NPN (C/B/E) e se o MOSFET P está com a fonte (S) no +V |
 | Cores trocadas (ex.: vermelho aparece verde) | Troque os fios R/G/B da fita ou os números em `PIN_FITA_R/G/B` |
-| Fita fica acesa direto | MOSFET ligado errado (dreno/fonte invertidos) ou sem pull-down no gate |
+| Fita fica acesa direto | MOSFET P com dreno/fonte invertidos ou sem o 10kΩ entre gate e +V |
+| Fita acende fraca | Com fita de 5V, o MOSFET P precisa ligar com 5V no gate (AO3401, IRLML6402…) |
 | ESP32 reinicia ao acender a fita | Fonte fraca — use uma fonte com mais corrente ou reduza o brilho |
 | Buzzer baixo | Aumente o volume na página ou use um transistor em 5V |
 | Não encontro a página | Conecte na rede `Caixa-Swim` e abra http://192.168.4.1 |

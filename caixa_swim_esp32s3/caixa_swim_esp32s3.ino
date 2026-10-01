@@ -24,10 +24,11 @@
 // ============ PINOS =============
 #define PIN_TRAVA       5    // Trava de metal (contato) -> GND quando fechada
 #define PIN_BUZZER      4    // Buzzer passivo (PWM)
-// Fita LED RGB comum (pinos +V, R, G, B): cada cor é acionada por um MOSFET
-#define PIN_FITA_R      15   // Gate do MOSFET do vermelho
-#define PIN_FITA_G      16   // Gate do MOSFET do verde
-#define PIN_FITA_B      17   // Gate do MOSFET do azul
+// Fita LED RGB não endereçável com GND comum (pinos GND, R, G, B).
+// Cada cor é alimentada por um driver NPN + MOSFET canal P (HIGH = cor acesa).
+#define PIN_FITA_R      15   // Base do NPN do vermelho
+#define PIN_FITA_G      16   // Base do NPN do verde
+#define PIN_FITA_B      17   // Base do NPN do azul
 
 // Com INPUT_PULLUP: trava fechada encosta no contato ligado ao GND -> LOW.
 // Se usar um sensor que funcione ao contrário, troque para HIGH.
