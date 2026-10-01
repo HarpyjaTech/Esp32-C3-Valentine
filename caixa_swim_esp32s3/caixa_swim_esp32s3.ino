@@ -13,7 +13,7 @@
  *     podem ser alterados pelo web server (http://caixa.local ou 192.168.4.1).
  *
  * Placa:  ESP32S3 Dev Module (Arduino-ESP32 core 3.x)
- * Libs:   Adafruit NeoPixel (somente se FITA_ENDERECAVEL = 1)
+ * Libs:   nenhuma além do core
  */
 
 #include <WiFi.h>
@@ -21,23 +21,13 @@
 #include <ESPmDNS.h>
 #include <Preferences.h>
 
-// ============ TIPO DA FITA LED =============
-// 1 = fita endereçável (WS2812B / SK6812, 5V, fio único de dados)
-// 0 = fita RGB analógica comum (5050, 12V, fios +12V/R/G/B) acionada por 3 MOSFETs
-#define FITA_ENDERECAVEL 1
-
-#if FITA_ENDERECAVEL
-#include <Adafruit_NeoPixel.h>
-#endif
-
 // ============ PINOS =============
 #define PIN_TRAVA       5    // Trava de metal (contato) -> GND quando fechada
 #define PIN_BUZZER      4    // Buzzer passivo (PWM)
-#define PIN_FITA_DADOS  6    // DIN da fita endereçável
-#define NUM_LEDS        60   // Quantidade de LEDs da fita endereçável
-#define PIN_FITA_R      15   // Gate do MOSFET do vermelho (fita analógica)
-#define PIN_FITA_G      16   // Gate do MOSFET do verde    (fita analógica)
-#define PIN_FITA_B      17   // Gate do MOSFET do azul     (fita analógica)
+// Fita LED RGB comum (pinos +V, R, G, B): cada cor é acionada por um MOSFET
+#define PIN_FITA_R      15   // Gate do MOSFET do vermelho
+#define PIN_FITA_G      16   // Gate do MOSFET do verde
+#define PIN_FITA_B      17   // Gate do MOSFET do azul
 
 // Com INPUT_PULLUP: trava fechada encosta no contato ligado ao GND -> LOW.
 // Se usar um sensor que funcione ao contrário, troque para HIGH.
@@ -125,10 +115,6 @@ struct Config {
 Preferences prefs;
 WebServer server(80);
 
-#if FITA_ENDERECAVEL
-Adafruit_NeoPixel fita(NUM_LEDS, PIN_FITA_DADOS, NEO_GRB + NEO_KHZ800);
-#endif
-
 bool travaFechada = true;           // estado filtrado
 bool leituraAnterior = true;
 unsigned long ultimaMudancaLeitura = 0;
@@ -169,14 +155,10 @@ void setup() {
   ledcAttach(PIN_BUZZER, 2000, BUZZER_RES_BITS);
   ledcWrite(PIN_BUZZER, 0);
 
-#if FITA_ENDERECAVEL
-  fita.begin();
-  fita.show();
-#else
+  // Fita: PWM de 5 kHz, 8 bits (0-255) por cor
   ledcAttach(PIN_FITA_R, 5000, 8);
   ledcAttach(PIN_FITA_G, 5000, 8);
   ledcAttach(PIN_FITA_B, 5000, 8);
-#endif
   fitaApagar();
 
   carregarConfig();
@@ -336,14 +318,9 @@ void fitaVolume(float volume) {
 }
 
 void fitaCor(uint8_t r, uint8_t g, uint8_t b) {
-#if FITA_ENDERECAVEL
-  fita.fill(fita.Color(r, g, b));
-  fita.show();
-#else
   ledcWrite(PIN_FITA_R, r);
   ledcWrite(PIN_FITA_G, g);
   ledcWrite(PIN_FITA_B, b);
-#endif
 }
 
 void fitaApagar() {

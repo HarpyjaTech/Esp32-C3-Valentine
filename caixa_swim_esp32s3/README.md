@@ -16,13 +16,12 @@ Tudo é controlado por um **ESP32-S3**, que também cria um **web server** para 
 ✅ **Eletrônicos:**
 - 1x ESP32-S3 (ex.: ESP32-S3-DevKitC-1)
 - 1x Buzzer passivo
-- 1x Fita LED RGB — escolha **uma** das opções:
-  - **Opção A (recomendada):** fita endereçável WS2812B / SK6812 **5V** (ex.: 60 LEDs)
-  - **Opção B:** fita RGB comum 5050 **12V** (4 fios: +12V, R, G, B) + 3x MOSFET logic-level (IRLZ44N, AO3400…) + 3x resistor 220Ω + 3x resistor 10kΩ
-- 1x Resistor 330Ω (linha de dados da fita endereçável)
-- 1x Capacitor 1000µF / 10V (na alimentação da fita endereçável)
+- 1x Fita LED RGB comum, **não endereçável** (ex.: 5050), com 4 pinos: **+V, R, G, B**
+- 3x MOSFET canal N logic-level (IRLZ44N, IRLB8721, AO3400…)
+- 3x Resistor 220Ω (gate dos MOSFETs)
+- 3x Resistor 10kΩ (pull-down dos gates)
 - Fios, solda e terminais/olhal para a trava
-- Power bank 5V / 2A ou mais (Opção A) ou fonte 12V + regulador 5V (Opção B)
+- Fonte com a tensão da fita (12V ou 5V); se for 12V, um regulador step-down 12V→5V para o ESP32
 
 ✅ **Caixa:**
 - 1x Caixa de madeira com tampa
@@ -41,10 +40,9 @@ ESP32-S3
 │                          │
 │ GPIO5  ← TRAVA (contato) │
 │ GPIO4  → BUZZER          │
-│ GPIO6  → DIN fita WS2812 │  (Opção A)
-│ GPIO15 → MOSFET R        │  (Opção B)
-│ GPIO16 → MOSFET G        │  (Opção B)
-│ GPIO17 → MOSFET B        │  (Opção B)
+│ GPIO15 → MOSFET R        │
+│ GPIO16 → MOSFET G        │
+│ GPIO17 → MOSFET B        │
 └──────────────────────────┘
 ```
 
@@ -70,23 +68,21 @@ Buzzer
 ```
 > Para mais volume, acione o buzzer por um transistor NPN (BC547/2N2222) alimentado em 5V.
 
-#### 3️⃣A **Fita endereçável WS2812B (5V)** — `FITA_ENDERECAVEL 1`
-```
-Power bank 5V ─┬──────────────── +5V da fita
-               ├── 1000µF ──┐
-GND ───────────┴────────────┴─── GND da fita ── GND do ESP32
-GPIO6 ── 330Ω ────────────────── DIN da fita
-```
-> Cada LED pode consumir até 60 mA no branco. Com 60 LEDs e o brilho padrão (180), use pelo menos 2A.
+#### 3️⃣ **Fita LED RGB (pinos +V, R, G, B)**
+O ESP32 não aguenta a corrente da fita direto nos pinos, então cada cor passa por um MOSFET, que liga o pino R, G ou B ao GND com PWM:
 
-#### 3️⃣B **Fita RGB comum 12V** — `FITA_ENDERECAVEL 0`
 ```
-+12V ─────────────────── +12V da fita
-Fita R ── Dreno MOSFET 1   Fonte → GND   Gate ── 220Ω ── GPIO15  (10kΩ gate→GND)
-Fita G ── Dreno MOSFET 2   Fonte → GND   Gate ── 220Ω ── GPIO16  (10kΩ gate→GND)
-Fita B ── Dreno MOSFET 3   Fonte → GND   Gate ── 220Ω ── GPIO17  (10kΩ gate→GND)
-GND da fonte 12V ── GND do ESP32
+Fonte +12V (ou +5V) ──────────── +V da fita
+
+Fita R ── Dreno MOSFET 1 │ Fonte → GND │ Gate ── 220Ω ── GPIO15  (10kΩ gate→GND)
+Fita G ── Dreno MOSFET 2 │ Fonte → GND │ Gate ── 220Ω ── GPIO16  (10kΩ gate→GND)
+Fita B ── Dreno MOSFET 3 │ Fonte → GND │ Gate ── 220Ω ── GPIO17  (10kΩ gate→GND)
+
+GND da fonte ── GND do ESP32 (GND comum obrigatório)
 ```
+
+> Com fonte de 12V, alimente o ESP32 por um step-down 12V→5V no pino 5V (ou pelo USB).
+> O pull-down de 10kΩ mantém a fita apagada enquanto o ESP32 inicia.
 
 ---
 
@@ -155,12 +151,9 @@ Exemplo: `curl -X POST -d "atraso=800&volume=100&brilho=180&ativo=1" http://caix
 ### **Arduino IDE**
 ```
 1. Instale a placa: "esp32 by Espressif Systems" (versão 3.x)
-2. Instale a biblioteca: "Adafruit NeoPixel" (somente para a Opção A)
-3. Placa: ESP32S3 Dev Module
-4. Abra caixa_swim_esp32s3/caixa_swim_esp32s3.ino
-5. Se usar fita 12V comum, mude para: #define FITA_ENDERECAVEL 0
-6. Ajuste NUM_LEDS para a quantidade de LEDs da sua fita
-7. Compile e carregue
+2. Placa: ESP32S3 Dev Module
+3. Abra caixa_swim_esp32s3/caixa_swim_esp32s3.ino
+4. Compile e carregue (nenhuma biblioteca extra é necessária)
 ```
 
 ### **PlatformIO**
@@ -170,7 +163,6 @@ platform = espressif32
 board = esp32-s3-devkitc-1
 framework = arduino
 monitor_speed = 115200
-lib_deps = adafruit/Adafruit NeoPixel
 ```
 > O código usa a API LEDC do Arduino-ESP32 **3.x** (`ledcAttach`, `ledcChangeFrequency`). Use uma versão de `platform` baseada no core 3.x.
 
@@ -200,9 +192,10 @@ O arranjo incluído é uma versão simplificada para buzzer (uma nota por vez). 
 |----------|---------|
 | Cena não inicia ao destravar | Veja "Trava" na página web; se aparecer invertido, troque `TRAVA_FECHADA_NIVEL` para `HIGH` |
 | Cena dispara sozinha | Melhore o contato da trava ou aumente `DEBOUNCE_MS` |
-| Fita não acende | Confira GND comum entre fita e ESP32, `NUM_LEDS` e `FITA_ENDERECAVEL` |
-| Cores estranhas na WS2812 | Troque `NEO_GRB` por `NEO_RGB` |
-| ESP32 reinicia ao acender a fita | Fonte fraca — use power bank/fonte de 2A+ ou reduza o brilho |
+| Fita não acende | Confira o GND comum entre fonte, MOSFETs e ESP32, e se o MOSFET é logic-level |
+| Cores trocadas (ex.: vermelho aparece verde) | Troque os fios R/G/B da fita ou os números em `PIN_FITA_R/G/B` |
+| Fita fica acesa direto | MOSFET ligado errado (dreno/fonte invertidos) ou sem pull-down no gate |
+| ESP32 reinicia ao acender a fita | Fonte fraca — use uma fonte com mais corrente ou reduza o brilho |
 | Buzzer baixo | Aumente o volume na página ou use um transistor em 5V |
 | Não encontro a página | Conecte na rede `Caixa-Swim` e abra http://192.168.4.1 |
 
