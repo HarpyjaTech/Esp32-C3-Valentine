@@ -2,6 +2,15 @@
 
 <a href="https://buymeacoffee.com/hapyjatech" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
 
+## 📦 Projetos neste repositório
+
+| Projeto | Placa | Descrição |
+|---------|-------|-----------|
+| [Caixa Mágica - Dia dos Namorados](#guia-completo-de-montagem) (`caixa_namorados.ino`) | ESP32-C3 | Sensor LDR detecta a abertura, buzzer toca "Enchanted" e LED RGB alterna cores |
+| [Caixa de Presente "Swim"](caixa_swim_esp32s3/README.md) (`caixa_swim_esp32s3/`) | ESP32-S3 | Trava de metal detecta o destravamento, buzzer toca "Swim" - BTS e fita LED vai do vermelho ao violeta conforme o volume; atraso ajustável via web server |
+
+---
+
 ## Guia Completo de Montagem
 
 ---
